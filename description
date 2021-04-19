@@ -1,0 +1,1035 @@
+
+/*********************************************************************
+*     PARANOID     --> A GAME                                        *
+*                                                                    *
+*     DEVELOPED IN --> BORLAND C++ VERSION 5.02                      *
+*                                                                    *
+*     MAIN FILES   --> EGAVGA.BGI     (for using graphics)           *
+*                      PARANOID.CPP   (main source code file)        *
+*                      PARANOID.IDE   (Borland C++ project file)     *
+*                      PARANOID.EXE   (executable file)              *
+*                      RECORD.$$$     (to record high scores)        *
+*                                                                    *
+*********************************************************************/
+
+
+/**********************HEADER FILES AND DEFINES *********************/
+
+#include<iostream.h>
+#include<stdlib.h>
+#include<conio.h>
+#include<graphics.h>
+#include<bios.h>
+#include<dos.h>
+#include<stdio.h>
+#include<fstream.h>
+#include<process.h>
+#include<iomanip.h>
+
+#define midx getmaxx()/2
+#define maxx getmaxx()
+#define maxy getmaxy()
+#define midy getmaxy()/2
+
+#define SCAN_P            25
+#define SCAN_NUM_MINUS    74
+#define SCAN_NUM_PLUS     78
+
+/**********************HEADER FILES AND DEFINES *********************/
+
+
+
+/*************classes used in the program*************
+*/                                                  /*
+*/                    class mouse;                  /*
+*/                    class record;                 /*
+*/                    class ball;                   /*
+*/                    class bricks;                 /*
+*/                    class gaming;                 /*
+*/                    class menus;                  /*
+*/                                                  /*
+*****************************************************/
+
+
+/*********************************************************************
+*                                                                    *
+*                     Class   Definitions   Begin                    *
+*                                                                    *
+*********************************************************************/
+
+/*------------------------------------------------------------------*/
+
+class mouse
+{
+	protected:
+   	int mouse_status, mouse_x, mouse_y;
+
+   public:
+   	int mouse_reset();
+		mouse();
+		void mouse_enable();
+   	~mouse();
+		void mouse_read_cursor();
+		void mouse_horizontal_range(int, int);
+		void mouse_vertical_range(int, int);
+		int get_mouse_x()
+	  	{
+			return mouse_x;
+		}
+};
+
+
+int mouse::mouse_reset(void)
+{
+   _AX=0;
+   geninterrupt(0x33);
+   return(_AX);
+}	// mouse_reset
+
+
+mouse::mouse()
+{
+	if(!mouse_reset())
+	{
+	cout<<"NO MOUSE DRIVER FOUND"<<endl; /* Detect Mouse Driver */
+	  cout<<"Press any key to exit....";
+		getch();
+		exit(0);
+	}
+}
+
+
+void mouse::mouse_enable(void)
+{
+   _AX=1;
+   geninterrupt(0x33);
+}	// mouse_enable
+
+
+mouse::~mouse(void)
+{
+   _AX=2;
+   geninterrupt(0x33);
+}	// mouse_disable
+
+
+void mouse::mouse_read_cursor(void)
+{
+   _AX=3;
+   geninterrupt(0x33);
+   mouse_status=_BX;
+   mouse_x=_CX;
+   mouse_y=_DX;
+}	// mouse_read_cursor
+
+
+void mouse::mouse_horizontal_range(int xmin, int xmax)
+{
+   _AX=7;
+   _CX=xmin;
+   _DX=xmax;
+   geninterrupt(0x33);
+}	// mouse_vertical_range
+
+
+void mouse::mouse_vertical_range(int ymin, int ymax)
+{
+   _AX=8;
+   _CX=ymin;
+   _DX=ymax;
+   geninterrupt(0x33);
+}	// mouse_vertical_range
+
+
+/*------------------------------------------------------------------*/
+
+
+class record
+{
+	protected:
+   	char name[20];
+      int pt;
+   public:
+		record();
+	  	int operator += (int);
+      void reput_point();
+	  	int getpt();
+      void getname();
+      void display(int);
+};
+
+
+record::record()
+{
+	pt=0;
+}
+
+
+void record::reput_point()
+{
+	char *str;
+   setcolor(BLACK);
+   bar(125,460,250,478);
+   setcolor(YELLOW);
+   outtextxy(130,462,itoa(pt,str,10));
+}
+
+
+int record::operator += (int add)
+{
+	pt+=add;
+	return pt;
+}
+
+
+int record::getpt()
+{
+	return pt;
+}
+
+
+void record::getname()
+{
+	textcolor(12);
+   cout<<endl<<endl<<endl;
+   cout<<endl<<endl<<endl;
+   cout<<endl<<endl<<endl;
+   cout<<endl<<endl<<endl<<"\t\t"<<"Enter your name =>    ";
+   gets(name);
+}
+
+
+void record::display(int rank)
+{
+	cout<<setw(15)<<rank;
+   cout<<setw(25)<<name;
+   cout<<setw(15)<<pt<<endl;
+}
+
+
+/*------------------------------------------------------------------*/
+
+
+class ball
+{
+   private:
+		int life_num;
+      int bx, by;
+     	int md;
+   public:
+   	ball();
+   	void lifedraw();
+   	void lifeless();
+		int operator -- ();
+      void lifesound();
+   	int getlife(){ return life_num; }
+
+      void balldeflect();
+      void bx_change_md();
+      void change_md();
+      void end_ch_md();
+      int getbx(){ return bx; }
+      int getby(){ return by; }
+};
+
+
+ball::ball()
+{
+	life_num = 3;
+   md=1;
+  	randomize();
+   bx=random(midx);  by=midy;
+}
+
+
+void ball::balldeflect()
+{
+		setfillstyle(SOLID_FILL,0);
+     	setcolor(0);
+   	fillellipse(bx,by,7,7);
+     	setfillstyle(SOLID_FILL,4);
+ 		switch(md)
+  		{
+   		case 0:bx+=1;  by-=1;	 break;
+   		case 1:bx-=1;  by-=1;    break;
+   		case 2:bx-=1;  by+=1;    break;
+   		case 3:bx+=1;  by+=1;    break;    // deflect the ball
+   		case 4:bx-=1;  by+=1;    break;
+   		case 5:bx+=1;  by-=1;    break;
+   		case 6:bx+=1;  by+=1;    break;
+   		case 7:bx-=1;  by-=1;    break;
+  		}
+}
+
+
+void ball::bx_change_md()
+{
+	if(bx>=631)									//if right border touched
+   {
+   	if(md==0||md==5)
+     		{ md=1;}
+      else
+     		{ md=4;}
+   }
+
+   if(bx<=8)									//if left border touched
+   {
+   	if(md==2||md==4)
+     		{ md=3;}
+      else
+     		{ md=5;}
+   }
+}
+
+
+void ball::change_md()
+{
+	if(md==1||md==7)
+   {
+   	md=2;
+   }
+	else
+	{
+   	md=6;
+   }
+}
+
+
+void ball::end_ch_md()
+{
+	if(md==3||md==6){ md=0; }
+	else { md=7; }
+}
+
+
+void ball::lifesound()
+{
+	sound(500);delay(70);
+   sound(2900);delay(10);
+   sound(2600);delay(30);
+}
+
+
+void ball::lifedraw()
+{
+	bar(maxx-20,470,maxx-10,475);
+  	bar(maxx-35,470,maxx-25,475);
+  	bar(maxx-50,470,maxx-40,475);
+}
+
+
+void ball::lifeless()
+{
+	switch(life_num)
+   {
+   	case 2:
+	 			setfillstyle(SOLID_FILL,0);
+	 			bar(maxx-20,470,maxx-10,475);break;
+      case 1:
+				setfillstyle(SOLID_FILL,0);
+				bar(maxx-35,470,maxx-25,475);break;
+      case 0:
+				setfillstyle(SOLID_FILL,0);
+				bar(maxx-50,470,maxx-40,475);break;
+   }
+   sound(2400);
+   delay(5);
+   nosound();
+}
+
+
+int ball::operator -- ()
+{
+	--life_num;
+	return life_num;
+}
+
+
+/*------------------------------------------------------------------*/
+
+
+class bricks
+{
+	protected:
+		int brick_num;
+
+   public:
+		bricks(){ }
+		bricks(int x){ brick_num = x; }
+      static void dbricks(int, int, int, int, int);
+      static void putbricks(int, int, int);
+      static void shadowbrick();
+		int getbrick();
+};
+
+
+void bricks::dbricks(int x,int set_c, int fill_c, int y_top, int y_bottom)
+{
+	setcolor(set_c);
+   setfillstyle(SOLID_FILL,fill_c);
+   bar(x-15,y_top,x+15,y_bottom);
+}
+
+
+void bricks::putbricks(int i, int x,int ch)
+{
+  	  if(i==0){ dbricks(x,7,9,2,17);
+       			if(ch==1)
+					dbricks(x,7,9,455,470);}
+		 if(i==1){ dbricks(x,6,5,19,34);
+       			if(ch==1)
+					dbricks(x,6,5,438,453);}
+		 if(i==2){ dbricks(x,1,2,36,51);
+       if(ch==1)
+				   dbricks(x,1,2,421,436);	 }
+		 if(i==3){ dbricks(x,11,6,53,68);
+       if(ch==1)
+				   dbricks(x,11,6,404,419); }
+		 if(i==4){ dbricks(x,13,12,70,85);
+       if(ch==1)
+				   dbricks(x,13,12,387,402);	 }
+}
+
+
+void bricks::shadowbrick()
+{
+	setfillstyle(SOLID_FILL,0);
+	setcolor(0);
+
+}
+
+
+int bricks::getbrick()
+{
+	return brick_num;
+}
+
+
+/*------------------------------------------------------------------*/
+
+
+class gaming
+{
+	protected:
+   	bricks eta[5][20];
+   	void gameover(int pt);
+      void youwin();
+      void pause();
+      unsigned char Get_Scan_Code();
+      void highscore();
+      void savetodisk(record *);
+      void readfromdisk(record *, int);
+      void sortbyscore(record **, int);
+      int findnoofrecords();
+   public:
+   	void play();
+
+};
+
+
+unsigned char gaming::Get_Scan_Code()
+{
+// get the scan code of a key press
+// since we have to look at status bits
+// use the inline assembler
+	__asm
+   {
+	 	mov ah,01h       //    function 1: is a key ready?
+	 	int 16h          //    call the interrupt
+	 	jz empty         //    there was no key so exit
+	 	mov ah,00h        //   function 0: get the scan code please
+	 	int 16h            //  call the interrupt
+	 	mov al,ah          //  result was in ah so put into al
+	 	xor ah,ah          //  zero out ah
+	 	jmp done           //  data's in ax
+
+		empty:
+	  		xor ax,ax       // clear out ax i.e. 0 means no key
+		done:
+	 } // end asm
+// since data is in ax it will be returned properly
+}
+
+
+void gaming::savetodisk(record *sp)
+{
+    // Write to a file
+    ofstream f;
+    f.open("record.$$$",ios::app|ios::binary);
+    f.write((char *)sp,sizeof(*sp));
+    f.close();
+}
+
+
+void gaming::readfromdisk(record *r, int n)
+{
+	ifstream file;
+   file.open("record.$$$",ios::binary);
+   file.seekg(n*sizeof(record),ios::beg);
+   file.read((char *)r,sizeof(*r));
+   file.close();
+}
+
+
+void gaming::sortbyscore(record **ptp, int n)
+{
+	record *temp;
+   for(int i=0;i<(n-1);i++)
+   {
+   	for(int j=(i+1);j<n;j++)
+      {
+      	if((*(ptp+i))->getpt()<(*(ptp+j))->getpt())
+         {
+         	temp=*(ptp+i);
+            *(ptp+i)=*(ptp+j);
+            *(ptp+j)=temp;
+         }
+      }
+   }
+   return;
+}
+
+
+int gaming::findnoofrecords()
+{
+	ifstream file;
+   file.open("record.$$$",ios::binary);
+   file.seekg(0,ios::end);
+   int n=file.tellg()/sizeof(record);
+   file.close();
+   return n;
+}
+
+
+void gaming::highscore()
+{
+  	int noofrecords=findnoofrecords();
+   record *arrptr[100];
+
+   for(int i=0;i<noofrecords;i++)
+   {
+   	*(arrptr+i)=new record;
+   	readfromdisk(*(arrptr+i),i);
+   }
+   sortbyscore(arrptr,noofrecords);
+   clrscr();
+   textcolor(12);
+   cout<<"\t\t\t\t"<<"HIGHSCORES"<<endl<<endl;
+
+   for(int i=0;i<80;i++)
+   cout<<"*";
+
+   cout<<endl;
+   cout<<setw(15)<<"RANK";
+   cout<<setw(25)<<"NAME";
+   cout<<setw(15)<<"SCORE"<<endl;
+
+   for(int i=0;i<80;i++)
+   cout<<"*";
+
+   cout<<endl;
+
+   if(noofrecords<=15)
+   {
+   	for(int i=0;i<noofrecords;i++)
+   	(*(arrptr+i))->display(i+1);
+   }
+
+   if(noofrecords>15)
+   {
+   	for(int i=0;i<15;i++)
+      (*(arrptr+i))->display(i+1);
+   }
+
+   char ans;
+
+   cout<<endl<<"----------------------Press 'R' or 'r' to reset the scores----------------------";
+
+   ans=getch();
+   if(ans=='R'||ans=='r')
+   {
+   	remove("record.$$$");
+   }
+   clrscr();
+   return;
+}
+
+
+
+void gaming::pause()
+{
+	settextstyle(DEFAULT_FONT,0,1);
+   setcolor(2);
+   outtextxy(255,462,"GAME PAUSED");
+   while(bioskey(1)==0);
+   setfillstyle(SOLID_FILL,0);
+   setcolor(0);
+   bar(250,460,450,478);
+   settextstyle(DEFAULT_FONT,0,2);
+}
+
+
+void gaming::youwin()
+{
+	settextstyle(DEFAULT_FONT,0,2);
+	for(int rd=0;rd<=5;rd++)
+  	{
+  		setcolor(0);
+		outtextxy(639/3-(rd-1)*25,455/2,"  YOU WIN!!");
+		settextstyle(DEFAULT_FONT,0,rd);
+  		setcolor(12);
+		outtextxy(639/3-rd*25,455/2,"  YOU WIN!!");
+  		delay(100);
+
+  	}
+   getch();
+}
+
+
+void gaming::gameover(int pt)
+{
+	char *str;
+ 	settextstyle(DEFAULT_FONT,0,2);
+	for(int rd=0;rd<=5;rd++)
+  	{
+  		setcolor(0);
+		outtextxy(639/3-(rd-1)*25,455/2," GAME  OVER ");
+		settextstyle(DEFAULT_FONT,0,rd);
+  		setcolor(12);
+		outtextxy(639/3-rd*25,455/2," GAME  OVER ");
+  		delay(100);
+  	}
+  	settextstyle(DEFAULT_FONT,0,2);
+  	itoa(pt,str,10);
+  	setcolor(12);
+  	outtextxy(midx-145,midy+80,"YOUR SCORE:");
+  	outtextxy(midx+100,midy+80,str);
+   getch();
+}  
+
+
+void gaming::play()
+{
+	mouse *mp;      mp = new mouse;
+   record *sp;     sp = new record;
+   ball playball;
+
+   float vel=1.0;
+  	int key,bx,by,dx=639/2;
+
+  	mp->mouse_enable();
+
+   cleardevice();
+  	setcolor(4);
+  	rectangle(0,0,639,459);        			//outer boundary
+
+   setfillstyle(SOLID_FILL,11);        	//solid fill for the base bar
+
+  	mp->mouse_horizontal_range(20,618);   //set horizontal range of mouse
+  	mp->mouse_vertical_range(493,500);    //set vertical range of mouse
+  	mp->mouse_read_cursor();              //read mouse movement
+  	bar(mp->get_mouse_x()-18,448,mp->get_mouse_x()+18,458);
+   													//draw base bar
+  	setfillstyle(SOLID_FILL,14);
+  	setcolor(9);
+  	settextstyle(0,0,2);
+  	outtextxy(maxx-150,462,"LIVES");
+   outtextxy(5,462,"SCORE");
+  	setcolor(14);
+   outtextxy(130,462,"0");
+  	playball.lifedraw();    							//draw life bar
+
+   //draw 5 lines of bricks
+	for(int i=0;i<5;i++)
+   {
+		int j=0;
+		for(int x=15;x<640;x+=32)
+		{
+			eta[i][j]=x;
+		   bricks::putbricks(i,x,0);
+			j++;
+		}
+   }
+
+  // Start of game loop
+	while(playball.getlife()>0)
+  	{
+     	mp->mouse_read_cursor();           //read mouse movement
+
+    	if(mp->get_mouse_x()!=dx)          //movement of base bar
+    	{
+     		setfillstyle(SOLID_FILL,0);
+     		bar(dx-18,448,dx+18,458);
+     		dx =mp->get_mouse_x();
+     		setfillstyle(SOLID_FILL,11);
+     		bar(dx-18,448,dx+18,458);
+    	}
+   	else
+   	{
+      	setfillstyle(SOLID_FILL,11);
+     		bar(dx-18,448,dx+18,458);
+      }
+
+      playball.balldeflect();            //deflect the ball
+
+      bx=playball.getbx();
+      by=playball.getby();
+
+  		fillellipse(bx,by,7,7);   				//move the ball to new place
+  		delay(vel); 								//determines ball's velocity
+      playball.bx_change_md();
+
+      if((by>=75)&&(by<=92))					//base line touched i.e. 1st line
+   	{
+        	for(int i=0;i<20;i++)
+      	{
+				if((bx>=eta[4][i].getbrick()-15)&&(bx<=eta[4][i].getbrick()+15)&&(eta[4][i].getbrick()!=0))
+			 	{
+            	playball.change_md();
+            	bricks::shadowbrick();
+               bar(eta[4][i].getbrick()-15,70,eta[4][i].getbrick()+15,85);
+	  				*sp+=10;
+	  				eta[4][i]=0;
+               sp->reput_point();
+	  			}
+     		}
+  		}
+
+ 		if((by>=58)&&(by<=75))              //2nd line touched
+   	{
+        	for(int i=0;i<20;i++)
+      	{
+				if((bx>=eta[3][i].getbrick()-15)&&(bx<=eta[3][i].getbrick()+15)&&(eta[3][i].getbrick()!=0))
+	 			{
+            	playball.change_md();
+            	bricks::shadowbrick();
+	  				bar(eta[3][i].getbrick()-15,53,eta[3][i].getbrick()+15,68);
+	  				*sp+=20;
+	  				eta[3][i]=0;
+               sp->reput_point();
+				}
+     		}
+   	}
+
+ 		if((by>=41)&&(by<=58))              //3rd line touched
+   	{
+        	for(int i=0;i<20;i++)
+      	{
+				if((bx>=eta[2][i].getbrick()-15)&&(bx<=eta[2][i].getbrick()+15)&&(eta[2][i].getbrick()!=0))
+	 			{
+            	playball.change_md();
+            	bricks::shadowbrick();
+	  				bar(eta[2][i].getbrick()-15,36,eta[2][i].getbrick()+15,51);
+	  				*sp+=30;
+	  				eta[2][i]=0;
+               sp->reput_point();
+	 			}
+      	}
+   	}
+
+ 		if((by>=24)&&(by<=41))              //4th line touched
+   	{
+        	for(int i=0;i<20;i++)
+      	{
+				if((bx>=eta[1][i].getbrick()-15)&&(bx<=eta[1][i].getbrick()+15)&&(eta[1][i].getbrick()!=0))
+	 			{
+            	playball.change_md();
+            	bricks::shadowbrick();
+	  				bar(eta[1][i].getbrick()-15,19,eta[1][i].getbrick()+15,34);
+	  				*sp+=40;
+	  				eta[1][i]=0;
+               sp->reput_point();
+	  			}
+      	}
+    	}
+
+ 		if((by>=7)&&(by<=24))       //top line touched i.e. 5th line
+   	{
+        	for(int i=0;i<20;i++)
+      	{
+				if((bx>=eta[0][i].getbrick()-15)&&(bx<=eta[0][i].getbrick()+15)&&(eta[0][i].getbrick()!=0))
+	 			{
+            	playball.change_md();
+            	bricks::shadowbrick();
+	  				bar(eta[0][i].getbrick()-15,2,eta[0][i].getbrick()+15,17);
+	  				*sp+=50;
+	  				eta[0][i]=0;
+               sp->reput_point();
+	 			}
+         }
+   	}
+
+ 		if(by<=7)                         //if top border touched
+ 		{
+      	playball.change_md();
+      }
+
+ 		if(sp->getpt()==3000)            //if all bricks touched
+ 		{
+ 			youwin();                     //you win
+     		delete mp;
+   		closegraph();
+
+         _setcursortype(_NOCURSOR);
+         textcolor(12);
+   		clrscr();
+   		cout<<"wait........";
+   		clrscr();
+
+   		sp->getname();
+   		savetodisk(sp);
+         highscore();
+         return;
+   	}
+
+ 		if(by>=440)
+   	{
+     		if(!(bx<=dx+25)||!(bx>=dx-25))
+     		{
+            --playball;
+            playball.lifesound();
+       		setfillstyle(SOLID_FILL,0);
+      		setcolor(0);
+      		fillellipse(bx,by,7,7);
+     		}
+
+      	playball.lifeless();      		  //reduction of life bar
+
+         playball.end_ch_md();
+
+   	}
+
+      key=Get_Scan_Code();
+
+     	if(key==SCAN_P)               	//if 'p' or 'P' pressed
+      { pause(); }
+
+      if(key==SCAN_NUM_PLUS)
+      { if(vel>0) vel-=0.4; }          // '+' increase velocity
+
+      if(key==SCAN_NUM_MINUS)
+      { if(vel<5) vel+=0.4; }          // '-' decrease velocity
+
+      setcolor(4);
+   	rectangle(0,0,639,459);
+   }//end of while
+
+   gameover(sp->getpt());         		//end of game
+   delete mp;
+   closegraph();
+
+   _setcursortype(_NOCURSOR);          //to remove the blinking cursor
+   textcolor(12);
+   clrscr();
+   cout<<"wait........";
+   clrscr();
+
+   sp->getname();
+   savetodisk(sp);
+   highscore();
+   return;
+}
+
+
+/*------------------------------------------------------------------*/
+
+
+class menus:public gaming
+{
+	protected:
+      void graphics_init();
+
+  	public:
+      void about();
+      void help();
+     	void main_menu();
+};
+
+
+void menus::graphics_init()
+{
+	int gd=DETECT, gm, errorcode;
+
+   initgraph(&gd,&gm," ");
+	errorcode = graphresult();
+
+   if (errorcode != grOk)    /* an error occurred */
+   {
+	cout<<"Graphics error: " <<grapherrormsg(errorcode)<<endl;
+	  cout<<"Press any key to exit.......";
+
+	  getch();
+	  exit(1);               /* return with error code */
+   }
+}
+
+
+void menus::help()
+{
+	setfillstyle(SOLID_FILL,0);
+	bar(79,98,500,360);
+
+	settextstyle(DEFAULT_FONT,0,3);
+   settextjustify(CENTER_TEXT,CENTER_TEXT);
+
+   setcolor(RED);
+   outtextxy(midx+3,123,"KEYS USED IN GAME");
+	setcolor(LIGHTRED);
+	outtextxy(midx,120,"KEYS USED IN GAME");
+	settextstyle(DEFAULT_FONT,0,2);
+
+   settextjustify(LEFT_TEXT,TOP_TEXT);
+	outtextxy(100,170,"Movement of bar --> mouse");
+	outtextxy(100,200,"Increase speed  --> + ");
+	outtextxy(100,230,"Decrease speed  --> - ");
+	outtextxy(100,260,"Pause game      --> p or P ");
+
+	getch();
+}
+
+
+void menus::about()
+{
+   setfillstyle(SOLID_FILL,0);
+	bar(79,98,500,360);
+
+   settextjustify(CENTER_TEXT,CENTER_TEXT);
+	settextstyle(DEFAULT_FONT,0,2);
+
+	setcolor(RED);
+	outtextxy(midx+2,145,"OBJECT ORIENTED PROGRAMMING PROJECT");
+
+   outtextxy(midx+2,242,"Created By =>");
+
+	setcolor(LIGHTRED);
+  	outtextxy(midx,143,"OBJECT ORIENTED PROGRAMMING PROJECT");
+
+   outtextxy(midx,240,"Created By =>");
+	outtextxy(midx,270,"Arati Rajbhandari");
+
+   settextstyle(DEFAULT_FONT,0,1);
+	outtextxy(midx,365,"Year  -  2001 A.D.");
+
+   settextjustify(LEFT_TEXT,TOP_TEXT);
+
+	getch();
+	return;
+}
+
+
+void menus::main_menu()
+{
+  	while(1)
+   {
+	  	char choice;
+	  	static int initg=0;
+
+	  	if(initg==0){
+			graphics_init();
+			++initg;
+	  	}
+	  	cleardevice();
+
+		for(int i=0;i<5;i++)
+   	{
+			int j=0;
+
+			for(int x=15;x<640;x+=32)
+			{
+         	bricks::putbricks(i,x,1);
+				j++;
+			}
+   	}
+
+	  	settextstyle(DEFAULT_FONT,0,3);
+     	settextjustify(CENTER_TEXT,CENTER_TEXT);
+	  	setcolor(4);
+	  	outtextxy(midx+3,123,"PARANOID");
+		setcolor(12);
+		outtextxy(midx,120,"PARANOID");
+		settextstyle(DEFAULT_FONT,0,2);
+
+      settextjustify(LEFT_TEXT,TOP_TEXT);
+		outtextxy(160,190,"1.   PLAY GAME");
+		outtextxy(160,220,"2.   HIGH SCORES");
+		outtextxy(160,250,"3.   HELP");
+		outtextxy(160,280,"4.   ABOUT");
+	  	outtextxy(160,310,"5.   EXIT");
+
+	  	setcolor(4);
+		outtextxy(160,190," .   PLAY  AME");
+		outtextxy(160,220," .   HIGH  CORES");
+		outtextxy(160,250," .    ELP");
+		outtextxy(160,280," .    BOUT");
+	  	outtextxy(160,310," .    XIT");
+
+		choice=getch();
+	  	fflush(stdin);
+
+      switch(choice)
+      {
+      	case '1':
+         case 'G':
+         case 'g':
+         				play();
+           				break;
+
+         case '2':
+         case 'S':
+         case 's':
+         				{
+         					closegraph();
+
+                        _setcursortype(_NOCURSOR);
+                        textcolor(12);
+                        clrscr();
+                        cout<<"wait........";
+                        clrscr();
+                        highscore();
+         				}
+                     break;
+
+         case '3':
+         case 'H':
+         case 'h':
+         				help();
+         				break;
+
+         case '4':
+         case 'A':
+         case 'a':
+         				about();
+         				break;
+
+         case '5':
+         case 'E':
+		   case 'e':
+         				{
+         					closegraph();
+         					exit(0);
+         				}
+							break;
+	  }
+
+     if(choice=='1'||choice=='G'||choice=='g'||choice=='2'||choice=='S'||choice=='s')
+     graphics_init();
+   }
+}
+
+
+/*----------------------------------------------------------------*/
+
+/*******************************************************************
+*                                                                  *
+*                     Class   Definitions   End                    *
+*                                                                  *
+*******************************************************************/
+
+
+
+
+void main()
+{
+  	menus mm;
+   mm.main_menu();
+}
